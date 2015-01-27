@@ -121,7 +121,8 @@ class GitHookController():
         else: flag = ''
         cmd = ["git", "checkout", branchname,flag]
         cmd = [' '.join(cmd)]
-        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        stdout = proc.communicate()[0].rstrip()
     
     ###########################
     ### functions for hooks ###
@@ -139,12 +140,14 @@ class GitHookController():
     def parse_pre_commit(self):
         cmd = ["git", "diff", "--cached", "--name-status"]            
         cmd = [' '.join(cmd)]
-        files = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        files = proc.communicate()[0].rstrip().split('\n')
         try:
             files = [(f.split('\t')[0] , f.split('\t')[1] ) for f in files]
         except:
             files = []
         return files
+        
     ## Parse message from pre-push 
     #
     # Based on example in:
@@ -182,9 +185,12 @@ class GitHookController():
         for commit in commits:
             if commit.local_ref == "(delete)":
                 removing_remote.add(commit.remote_branch)
+                
         return Push(commits=commits,
-                    remote_name=args.remote_name, remote_url=args.remote_url,
-                    current_branch=current_branch, removing_remote=removing_remote,
+                    remote_name=args.remote_name, 
+                    remote_url=args.remote_url,
+                    current_branch=current_branch,
+                    removing_remote=removing_remote,
                     forcing=forcing)
     
     ###########################################
@@ -196,6 +202,7 @@ class GitHookController():
     # @param self The object pointer
     def check_cpplint( self, filepath):
         pass
+        
     #########################################
     ### functions for doxygen integration ###
     #########################################
@@ -210,7 +217,12 @@ class GitHookController():
         #prepare custom header template
         linklines = []
         for branchname in self.remote_branches:
-            linklines.append( '<option value="http://aachen-3a.github.io/%s/doc/doc_%s/html/index.html">%s</option>' % ( self.remote_root_name, branchname , branchname) )
+            if branchname in self.vetobranches:
+               continue 
+            linkline = '<option value="http://aachen-3a.github.io/'+\
+                        '%s/doc/doc_%s/html/index.html">%s</option>' % \
+                        ( self.remote_root_name, branchname , branchname)
+            linklines.append( linkline )
 
         with open('./doc/header_template.html', "rU+") as header_template:
             text = header_template.read()
@@ -236,7 +248,8 @@ class GitHookController():
         if len(branchnames) > 0:
             #check if /tmp dir exists
             if not os.path.exists(self.tempdir) and os.path.isdir(self.tempdir):
-                log.error('Directory %s not found. Create it or change tempdir of githookcontroller')
+                msg = 'Directory %s not found. Create it or change tempdir of githookcontroller'
+                log.error( msg )
                 sys.exit(1)
                 
             # check if current branch is in branchnames and process it first to
@@ -280,15 +293,18 @@ class GitHookController():
                 cmd = [ "git", "add", docfolder ]
                 cmd =  [' '.join(cmd)]
                 print cmd
-                stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip() 
+                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                stdout = proc.communicate()[0].rstrip() 
                 shutil.rmtree( src  )       
                 
             # commit changes 
-            msg = '" updated doxygen documentation for branch: %s"' % ' '.join( [c[1] for c in copied] ) 
+            bname = ' '.join( [c[1] for c in copied] 
+            msg = '" updated doxygen documentation for branch: %s"' % bname_string) 
             cmd = [ "git", "commit", "-m" , msg]
             cmd =  [' '.join(cmd)]
-            print cmd
-            stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
+            #~ print cmd
+            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+            stdout = proc.communicate()[0].rstrip()
             
             # return to start branch
             self.checkout_branch( startbranch )
