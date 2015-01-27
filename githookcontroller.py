@@ -298,8 +298,8 @@ class GitHookController():
                 shutil.rmtree( src  )       
                 
             # commit changes 
-            bname = ' '.join( [c[1] for c in copied] 
-            msg = '" updated doxygen documentation for branch: %s"' % bname_string) 
+            bname = ' '.join( [c[1] for c in copied] )
+            msg = '" updated doxygen documentation for branch: %s"' % bname_string
             cmd = [ "git", "commit", "-m" , msg]
             cmd =  [' '.join(cmd)]
             #~ print cmd
