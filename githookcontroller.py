@@ -299,7 +299,7 @@ class GitHookController():
                 
             # commit changes 
             bname = ' '.join( [c[1] for c in copied] )
-            msg = '" updated doxygen documentation for branch: %s"' % bname_string
+            msg = '" updated doxygen documentation for branch: %s"' % bname
             cmd = [ "git", "commit", "-m" , msg]
             cmd =  [' '.join(cmd)]
             #~ print cmd
