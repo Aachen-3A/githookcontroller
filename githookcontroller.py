@@ -87,7 +87,6 @@ class GitHookController():
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
         #~ print stdout
         for line in stdout:
-            print 'line', line
             if 'fetch' in line:
                 return line.split( '/' )[-2].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
@@ -110,7 +109,6 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
         stdout = [ st.split('/')[-1] for st in stdout]
-        print stdout
         return stdout
         
     ## Checkout another branch 
@@ -142,8 +140,11 @@ class GitHookController():
         cmd = ["git", "diff", "--cached", "--name-status"]            
         cmd = [' '.join(cmd)]
         files = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
-        files = [(f.split('\t')[0] , f.split('\t')[1] ) for f in files]
-        print files
+        try:
+            files = [(f.split('\t')[0] , f.split('\t')[1] ) for f in files]
+        except:
+            files = []
+        return files
     ## Parse message from pre-push 
     #
     # Based on example in:
@@ -210,7 +211,7 @@ class GitHookController():
         linklines = []
         for branchname in self.remote_branches:
             linklines.append( '<option value="http://aachen-3a.github.io/%s/doc/doc_%s/html/index.html">%s</option>' % ( self.remote_root_name, branchname , branchname) )
-        print linklines
+
         with open('./doc/header_template.html', "rU+") as header_template:
             text = header_template.read()
             text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )
