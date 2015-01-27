@@ -8,6 +8,9 @@ from githookcontroller import GitHookController
 
 gitController = GitHookController()
 
+changed = gitController.parse_pre_commit()
+print changed
+
 # doxygen integration
 gitController.prepare_doxygen_cfg() 
 gitController.update_doxygen() 

@@ -63,9 +63,34 @@ class GitHookController():
         self.doxy_enforce_repos = ['lib', 'Lib','test']
     
     
-    ###########################
+    ############################
     ### git helper functions ###
-    ###########################
+    ############################
+    
+    ## Get root name of repo
+    #
+    # @returns string containing the name of the root name
+    @property
+    def root_name(self):
+        cmd = ["git", "rev-parse","--show-toplevel"]
+        cmd = [' '.join(cmd)]
+        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
+        return stdout.split('/')[-1]
+    
+    ## Get root name of remote (the original repo name) 
+    #
+    # @returns string containing the name of the remote root name
+    @property
+    def remote_root_name(self):
+        cmd = ["git", "remote","-v"]
+        cmd = [' '.join(cmd)]
+        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
+        #~ print stdout
+        for line in stdout:
+            print 'line', line
+            if 'fetch' in line:
+                return line.split( '/' )[-2].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+        return 'not_found'
     
     ## Get currently chosen branch 
     #
@@ -75,15 +100,18 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
         return stdout
-        
-    ## Get currently chosen branch 
+    
+    ## Get list of remote branches 
     #
+    # @returns A list of strings containing all remot branch names
     @property
-    def root_name(self):
-        cmd = ["git", "rev-parse","--show-toplevel"]
+    def remote_branches(self):
+        cmd = ["git", "branch", "-r"]
         cmd = [' '.join(cmd)]
-        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
-        return stdout.split('/')[-1]
+        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
+        stdout = [ st.split('/')[-1] for st in stdout]
+        print stdout
+        return stdout
         
     ## Checkout another branch 
     #
@@ -106,13 +134,16 @@ class GitHookController():
     # @param self The object pointer
     def post_commit(self):
         pass
-
-    def pre_commit(self):
-        if not any(self.current_branch in b for b in self.vetobranches):
-            self.prepare_doxygen_cfg()
-            self.update_doxygen()
-            
-    
+        
+    ## Get list of chagend files in commit
+    #
+    # @param self The object pointer
+    def parse_pre_commit(self):
+        cmd = ["git", "diff", "--cached", "--name-status"]            
+        cmd = [' '.join(cmd)]
+        files = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
+        files = [(f.split('\t')[0] , f.split('\t')[1] ) for f in files]
+        print files
     ## Parse message from pre-push 
     #
     # Based on example in:
@@ -155,6 +186,15 @@ class GitHookController():
                     current_branch=current_branch, removing_remote=removing_remote,
                     forcing=forcing)
     
+    ###########################################
+    ### functions for code style enforcment ###
+    ###########################################
+    
+    ## Check if file fullfills cpplint check
+    #
+    # @param self The object pointer
+    def check_cpplint( self, filepath):
+        pass
     #########################################
     ### functions for doxygen integration ###
     #########################################
@@ -165,6 +205,19 @@ class GitHookController():
     def prepare_doxygen_cfg(self):
         if self.current_branch in self.vetobranches:
             return None
+            
+        #prepare custom header template
+        linklines = []
+        for branchname in self.remote_branches:
+            linklines.append( '<option value="http://aachen-3a.github.io/%s/doc/doc_%s/html/index.html">%s</option>' % ( self.remote_root_name, branchname , branchname) )
+        print linklines
+        with open('./doc/header_template.html', "rU+") as header_template:
+            text = header_template.read()
+            text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )
+        with open('./doc/header.html', "wb") as header:
+            header.write(text)    
+                    
+        # prepare main config    
         replacements = {'<branchname>':self.current_branch}
         with open('./doc/template_cfg', "rU+") as template:
             text = template.read()
