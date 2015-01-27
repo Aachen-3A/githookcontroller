@@ -281,6 +281,11 @@ class GitHookController():
                     
             # checkout gh-pages branch, move and add folders
             self.checkout_branch( 'gh-pages' )
+            # make sure gh-pages is up to date
+            cmd = [ "git", "pull"]
+            
+            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+            stdout = proc.communicate()[0].rstrip()
             
             for temp in copied:
                 (src, branch) = temp
