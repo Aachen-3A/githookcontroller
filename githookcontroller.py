@@ -88,7 +88,10 @@ class GitHookController():
         #~ print stdout
         for line in stdout:
             if 'fetch' in line:
-                return line.split( '/' )[-2].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                if 'https' in line:
+                    return line.split( '/' )[-2].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                if 'git@github.com' in line:
+                    return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
     
     ## Get currently chosen branch 
@@ -109,6 +112,7 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
         stdout = [ st.split('/')[-1] for st in stdout]
+        branches = list( set(stdout) )
         return stdout
         
     ## Checkout another branch 
@@ -268,24 +272,43 @@ class GitHookController():
                 
                 #checkout doc folders from all branches
                 for branchname in branchnames:
+                    log.info( 'adding doc for %s to gh-pages' % branchname )
                     cmd = ["git", "checkout", branchname, "./doc/doc_%s" % branchname]
+                    cmd = ' '.join(cmd)
+                    log.info( cmd )
                     proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                    #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
                     stdout = proc.communicate()[0].rstrip()
-                
+                    log.info( stdout )
+                    
+                    # add checked out files
+                    cmd = ["git", "add", "./doc/doc_%s" % branchname]
+                    cmd = ' '.join( cmd ) 
+                    log.info( cmd )
+                    proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                    #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
+                    stdout = proc.communicate()[0].rstrip()
+                    log.info( stdout )
                  # commit changes 
-                bname = ' '.join( [c[1] for c in copied] )
+                bname = ' '.join( branchnames )
                 msg = '" updated doxygen documentation for branch: %s"' % bname
-                cmd = [ "git", "commit", "-a" , "-m" , msg]
+                cmd = [ "git", "commit", "-a" ,"--no-verify", "-m" , msg]
                 cmd =  [' '.join(cmd)]
+                log.info( cmd )
                 #~ print cmd
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 stdout = proc.communicate()[0].rstrip()
+                log.info( stdout )
                 
                 # push only gh-branches as it is not included in current push
-                cmd = ["git", "push", "origin", "HEAD"]
+                cmd = ["git", "push", "--no-verify" ,"origin", "gh-pages"]
+                cmd = ' '.join(cmd)
+                log.info( cmd )
+                log.info( 'pushing in gh-pages')
+                #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 stdout = proc.communicate()[0].rstrip()
-                
+                log.info( stdout )
                 # return to start branch
                 self.checkout_branch( startbranch )
            
@@ -302,7 +325,6 @@ class GitHookController():
         log.info( 'updating doxygen documentation' )
         stdout, stderr = current_ref = subprocess.Popen(['doxygen', configpath],
                                         stdout=subprocess.PIPE).communicate()
-        
         warnings = self._get_doxygen_warnings()
         nwarnings = len(warnings)
         if nwarnings > 0:
@@ -320,10 +342,11 @@ class GitHookController():
                 else:
                     log.warning( 'You are in branch %s. Better fix errors now or merge commits will be rejected to dev/master in the future' )
         # add new doc to branch
-        cmd = [ "git", "add", "./doc/doc_%s/" % self.current_branch ]
-        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        cmd = [ "git", "add", "doc/doc_%s/" % self.current_branch ]
+        print cmd
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
         stdout = proc.communicate()[0].rstrip()
-        cmd = ["git", "commit", "--amend", "-C", "HEAD", "--no-verify"]
+        cmd = ["git", "commit", "-a", "--amend", "-C", "HEAD", "--no-verify"]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         stdout = proc.communicate()[0].rstrip()
 
