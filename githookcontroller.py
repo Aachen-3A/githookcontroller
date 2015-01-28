@@ -270,7 +270,7 @@ class GitHookController():
                 for branchname in branchnames:
                     cmd = ["git", "checkout", branchname, "./doc/doc_%s" % branchname]
                     proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                    stdout = proc.communicate()[0].rstrip()i
+                    stdout = proc.communicate()[0].rstrip()
                 
                  # commit changes 
                 bname = ' '.join( [c[1] for c in copied] )
@@ -320,7 +320,10 @@ class GitHookController():
                 else:
                     log.warning( 'You are in branch %s. Better fix errors now or merge commits will be rejected to dev/master in the future' )
         # add new doc to branch
-        cmd = [ "git", "add", "./doc/doc_%" % self.current_branch ]
+        cmd = [ "git", "add", "./doc/doc_%s/" % self.current_branch ]
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        stdout = proc.communicate()[0].rstrip()
+        cmd = ["git", "commit", "--amend", "-C", "HEAD", "--no-verify"]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         stdout = proc.communicate()[0].rstrip()
 
