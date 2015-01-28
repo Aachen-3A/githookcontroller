@@ -247,72 +247,47 @@ class GitHookController():
         startbranch = self.current_branch
         if len(branchnames) > 0:
             #check if /tmp dir exists
-            if not os.path.exists(self.tempdir) and os.path.isdir(self.tempdir):
-                msg = 'Directory %s not found. Create it or change tempdir of githookcontroller'
-                log.error( msg )
-                sys.exit(1)
-                
+            #~ if not os.path.exists(self.tempdir) and os.path.isdir(self.tempdir):
+                #~ msg = 'Directory %s not found. Create it or change tempdir of githookcontroller'
+                #~ log.error( msg )
+                #~ sys.exit(1)
+                #~ 
             # check if current branch is in branchnames and process it first to
             # avoid uneccessary git checkouts
             if any(self.current_branch in b for b in branchnames):
                 branchnames.remove( self.current_branch )
                 branchnames.insert( 0, self.current_branch )
-            
-            # checkout branches and copy docs folder to temp
-            copied = []
-            for branch in branchnames:
-                if 'gh-pages' in branch: continue
-                self.checkout_branch( branch , forced = True)
-                docdir = './doc/doc_%s' % branch
-                # copy doxygen folder if it exists
-                if not os.path.isdir( docdir ): continue
-                dest = os.path.join( self.tempdir, 'doc_%s' % branch)
-                try:
-                    shutil.rmtree( dest  ) 
-                except:
-                    pass
-                shutil.copytree( docdir, dest )
-                #~ try:
-                shutil.rmtree( docdir  ) 
-                copied.append( (dest, branch) )
-                #~ except:
-                    #~ pass
                 
-                    
-            # checkout gh-pages branch, move and add folders
-            self.checkout_branch( 'gh-pages' )
-            # make sure gh-pages is up to date
-            cmd = [ "git", "pull"]
-            
-            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-            stdout = proc.communicate()[0].rstrip()
-            
-            for temp in copied:
-                (src, branch) = temp
-                docfolder = './doc/doc_%s' % branch
-                try:
-                    shutil.rmtree( docfolder ) 
-                except:
-                    pass
-                shutil.copytree( src , docfolder  )
-                cmd = [ "git", "add", docfolder ]
-                cmd =  [' '.join(cmd)]
-                print cmd
+            if not 'gh-pages' in branchnames:
+                # checkout gh-pages branch, move and add folders
+                self.checkout_branch( 'gh-pages' )
+                # make sure gh-pages is up to date
+                cmd = [ "git", "pull"]
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                stdout = proc.communicate()[0].rstrip() 
-                shutil.rmtree( src  )       
+                stdout = proc.communicate()[0].rstrip()
                 
-            # commit changes 
-            bname = ' '.join( [c[1] for c in copied] )
-            msg = '" updated doxygen documentation for branch: %s"' % bname
-            cmd = [ "git", "commit", "-m" , msg]
-            cmd =  [' '.join(cmd)]
-            #~ print cmd
-            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-            stdout = proc.communicate()[0].rstrip()
-            
-            # return to start branch
-            self.checkout_branch( startbranch )
+                #checkout doc folders from all branches
+                for branchname in branchnames:
+                    cmd = ["git", "checkout", branchname, "./doc/doc_%s" % branchname]
+                    proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                    stdout = proc.communicate()[0].rstrip()i
+                
+                 # commit changes 
+                bname = ' '.join( [c[1] for c in copied] )
+                msg = '" updated doxygen documentation for branch: %s"' % bname
+                cmd = [ "git", "commit", "-a" , "-m" , msg]
+                cmd =  [' '.join(cmd)]
+                #~ print cmd
+                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                stdout = proc.communicate()[0].rstrip()
+                
+                # push only gh-branches as it is not included in current push
+                cmd = ["git", "push", "origin", "HEAD"]
+                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+                stdout = proc.communicate()[0].rstrip()
+                
+                # return to start branch
+                self.checkout_branch( startbranch )
            
     ## Update the doxygen documentation for this folder repo
     #
@@ -344,7 +319,10 @@ class GitHookController():
                     sys.exit(1)
                 else:
                     log.warning( 'You are in branch %s. Better fix errors now or merge commits will be rejected to dev/master in the future' )
-
+        # add new doc to branch
+        cmd = [ "git", "add", "./doc/doc_%" % self.current_branch ]
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        stdout = proc.communicate()[0].rstrip()
 
 
     ## Get all doxygen warnings
