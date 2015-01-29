@@ -119,8 +119,6 @@ class GitHookController():
                     url = url.replace( ':', '/' ).strip()
                     url = "https://" + url 
                     
-                log.info('Your remote URL is %s' % url)
-
                 try:
                     urllib2.urlopen(url)
                     return url
@@ -354,29 +352,29 @@ class GitHookController():
                 
                 #checkout doc folders from all branches
                 for branchname in branchnames:
-                    log.info( 'adding doc for %s to gh-pages' % branchname )
+                    log.debug( 'adding doc for %s to gh-pages' % branchname )
                     cmd = ["git", "checkout", branchname, "./doc/doc_%s" % branchname]
                     cmd = ' '.join(cmd)
-                    log.info( cmd )
+                    log.debug( cmd )
                     proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                     #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
                     stdout = proc.communicate()[0].rstrip()
-                    log.info( stdout )
+                    log.debug( stdout )
                     
                     # add checked out files
                     cmd = ["git", "add", "./doc/doc_%s" % branchname]
                     cmd = ' '.join( cmd ) 
-                    log.info( cmd )
+                    log.debug( cmd )
                     proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                     #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
                     stdout = proc.communicate()[0].rstrip()
-                    log.info( stdout )
+                    log.debug( stdout )
                  # commit changes 
                 bname = ' '.join( branchnames )
                 msg = '" updated doxygen documentation for branch: %s"' % bname
                 cmd = [ "git", "commit", "-a" ,"--no-verify", "-m" , msg]
                 cmd =  [' '.join(cmd)]
-                log.info( cmd )
+                log.debug( cmd )
                 #~ print cmd
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 stdout = proc.communicate()[0].rstrip()
@@ -385,12 +383,12 @@ class GitHookController():
                 # push only gh-branches as it is not included in current push
                 cmd = ["git", "push", "--no-verify" ,"origin", "gh-pages"]
                 cmd = ' '.join(cmd)
-                log.info( cmd )
-                log.info( 'pushing in gh-pages')
+                log.debug( cmd )
+                log.debug( 'pushing in gh-pages')
                 #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 stdout = proc.communicate()[0].rstrip()
-                log.info( stdout )
+                log.debug( stdout )
                 # return to start branch
                 self.checkout_branch( startbranch )
            
