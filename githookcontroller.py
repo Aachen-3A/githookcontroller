@@ -113,8 +113,14 @@ class GitHookController():
                     url = line.split()[1].replace( '.git', '' )
                     url = url.replace( '(fetch)', '' ).strip()
                 if 'git@' in line:
-                    url = "https://" + line.split( '@' )[-1]
-                    url = url.replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                    url = line.split( '@' )[-1]
+                    url = url.replace( '.git', '' )
+                    url = url.replace( '(fetch)', '' ).strip()
+                    url = url.replace( ':', '/' ).strip()
+                    url = "https://" + url 
+                    
+                log.info('Your remote URL is %s' % url)
+
                 try:
                     urllib2.urlopen(url)
                     return url
@@ -122,6 +128,8 @@ class GitHookController():
                     return "HTTPerror url nor found %s" % e.args
                 except urllib2.URLError, e:
                     return "URLerror url nor found %s" % e.args
+                except :
+                    return ""
         return ""
     
     ## Get currently chosen branch 
@@ -234,6 +242,7 @@ class GitHookController():
     ## Check if file fullfills cpplint check
     #
     # @param self The object pointer
+    # @param filepath path to the file where lint check should be performed 
     def check_cpplint( self, filepath):
         pass
         
@@ -246,10 +255,10 @@ class GitHookController():
     # The function replaces Tokens for files in ./doc/:
     # - template_cfg
     #   available Tokens:
-    #     <branchname> current branch name
-    #     <remote_root_name>
-    #     <html_header> path to html header file
-    #     <html_footer> path to html header file
+    #     %branchname% current branch name
+    #     %remote_root_name%
+    #     %html_header% path to html header file
+    #     %html_footer% path to html header file
     # - header_template.html
     # - footer_template.html
     #   available Tokens:
@@ -271,7 +280,7 @@ class GitHookController():
         # check if template files exist and read
         if os.path.isfile( header_template_path ):
             header_path = './doc/header.html'
-            with open( header_path, "rU+") as header_template:
+            with open( header_template_path, "rU+") as header_template:
                 header_html = header_template.read()
                 template_html.update({'header' : header_html } )
         else: 
@@ -291,18 +300,15 @@ class GitHookController():
         for branchname in self.remote_branches:
             if branchname in self.vetobranches:
                continue 
-            linkline = '<option value="http://%s.github.io/'+\
-                        '%s/doc/doc_%s/html/index.html">%s</option>' % \
-                        ( self.organisation, 
-                        self.remote_root_name,
-                        branchname , branchname)
+            print ( self.organisation, self.remote_root_name, branchname , branchname)
+            linkline = '<option value="http://%s.github.io/%s/doc/doc_%s/html/index.html">%s</option>' % \
+                        ( self.organisation, self.remote_root_name, branchname, branchname)
+                        
             linklines.append( linkline )
         
-        
         replacements = { '++branchname++' : self.current_branch,
-                         '++remote_root_name++' : self.remote_root_name }      
-                         '++remote_url++' : self.remote_root_name }      
-        ) )
+                         '++remote_root_name++' : self.remote_root_name,    
+                         '++remote_url++' : self.remote_url }
         
         # replace tokens and write files
         for key in template_html.keys():
@@ -314,9 +320,10 @@ class GitHookController():
                 html_file.write( text )  
         
         ## prepare main config    
-        replacements = { '<branchname>':self.current_branch,
-                         '<footer_html>' : footer_path,
-                         '<header_html>' : header_path }
+        replacements = { '%branchname%':self.current_branch,
+                         '%remote_root_name%' : self.remote_root_name,
+                         '%footer_html%' : footer_path,
+                         '%header_html%' : header_path }
         with open('./doc/doxy_cfg_template', "rU+") as template:
             text = template.read()
             for src, target in replacements.iteritems():
