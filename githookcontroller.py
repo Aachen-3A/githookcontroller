@@ -30,6 +30,7 @@ import parser
 import argparse
 import subprocess
 import logging
+import urllib2
 
 log = logging.getLogger( 'githookcontroller' )
 log.setLevel( logging.INFO )
@@ -55,13 +56,14 @@ class GitHookController():
         parser = argparse.ArgumentParser(description='Parser for git message to hook')
         self.parser = parser
         self.stdin = sys.stdin.read()
+        self.organisation = 'aachen-3a'
         self.tempdir = tempdir
         # list of branches where branch specific hooks are ignored
         self.vetobranches = ['gh-pages']
         # list of reponametags (parts of repo root name) where doxygen
         # documentation is enforced
         self.doxy_enforce_repos = ['lib', 'Lib','test']
-    
+        
     
     ############################
     ### git helper functions ###
@@ -93,6 +95,34 @@ class GitHookController():
                 if 'git@github.com' in line:
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
+        
+    ## Get url from remote 
+    #
+    # @returns string containing the name of the remote root name
+    @property
+    def remote_url(self):
+        cmd = ["git", "remote","-v"]
+        cmd = [' '.join(cmd)]
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        stdout = proc.communicate()[0].rstrip().split('\n')
+        #~ print stdout
+        for line in stdout:
+            if 'fetch' in line:
+
+                if 'https' in line:
+                    url = line.split()[1].replace( '.git', '' )
+                    url = url.replace( '(fetch)', '' ).strip()
+                if 'git@' in line:
+                    url = "https://" + line.split( '@' )[-1]
+                    url = url.replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                try:
+                    urllib2.urlopen(url)
+                    return url
+                except urllib2.HTTPError, e:
+                    return "HTTPerror url nor found %s" % e.args
+                except urllib2.URLError, e:
+                    return "URLerror url nor found %s" % e.args
+        return ""
     
     ## Get currently chosen branch 
     #
@@ -213,30 +243,81 @@ class GitHookController():
     
     ## Prepare doxygen config file from template
     #
+    # The function replaces Tokens for files in ./doc/:
+    # - template_cfg
+    #   available Tokens:
+    #     <branchname> current branch name
+    #     <remote_root_name>
+    #     <html_header> path to html header file
+    #     <html_footer> path to html header file
+    # - header_template.html
+    # - footer_template.html
+    #   available Tokens:
+    #      +++optionsline+++ a fixed url path 
+    #      ++branch_name++ current branch name
+    #      ++remote_url++ see object property
+    #      ++remote_root_name++ see object property
+    # 
     # @param self The object pointer
     def prepare_doxygen_cfg(self):
         if self.current_branch in self.vetobranches:
             return None
             
-        #prepare custom header template
+        ## prepare footer.html and header.html
+        template_html = {}
+        header_template_path = './doc/header_template.html'
+        footer_template_path = './doc/footer_template.html'
+        
+        # check if template files exist and read
+        if os.path.isfile( header_template_path ):
+            header_path = './doc/header.html'
+            with open( header_path, "rU+") as header_template:
+                header_html = header_template.read()
+                template_html.update({'header' : header_html } )
+        else: 
+            header_path = ''
+            
+        if os.path.isfile( footer_template_path ):
+            doFooter = True
+            footer_path = './doc/footer.html'
+            with open( footer_template_path , "rU+") as footer_template:
+                footer_html = footer_template.read()
+                template_html.update( {'footer':footer_html} )
+        else: 
+            footer_path = ''
+            
+        # prepare linklines and replacements
         linklines = []
         for branchname in self.remote_branches:
             if branchname in self.vetobranches:
                continue 
-            linkline = '<option value="http://aachen-3a.github.io/'+\
+            linkline = '<option value="http://%s.github.io/'+\
                         '%s/doc/doc_%s/html/index.html">%s</option>' % \
-                        ( self.remote_root_name, branchname , branchname)
+                        ( self.organisation, 
+                        self.remote_root_name,
+                        branchname , branchname)
             linklines.append( linkline )
-
-        with open('./doc/header_template.html', "rU+") as header_template:
-            text = header_template.read()
-            text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )
-        with open('./doc/header.html', "wb") as header:
-            header.write(text)    
-                    
-        # prepare main config    
-        replacements = {'<branchname>':self.current_branch}
-        with open('./doc/template_cfg', "rU+") as template:
+        
+        
+        replacements = { '++branchname++' : self.current_branch,
+                         '++remote_root_name++' : self.remote_root_name }      
+                         '++remote_url++' : self.remote_root_name }      
+        ) )
+        
+        # replace tokens and write files
+        for key in template_html.keys():
+            text = template_html[key]   
+            text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )   
+            for src, target in replacements.iteritems():
+                text = text.replace(src, target)
+            with open( './doc/%s.html' % key, "wb" ) as html_file:
+                html_file.write( text )  
+        
+        ## prepare main config    
+        replacements = { '<branchname>':self.current_branch,
+                         '<footer_html>' : footer_path,
+                         '<header_html>' : header_path }
+        with open('./doc/doxy_cfg_template', "rU+") as template:
             text = template.read()
             for src, target in replacements.iteritems():
                     text = text.replace(src, target)
@@ -244,18 +325,12 @@ class GitHookController():
         with open('./doc/doxy_cfg', "wb") as config:
             config.write(text)
     
-    ## Copy all doygen folders to gh-pages branch and commit changes
+    ## Checkout all doygen folders in gh-pages branch and commit changes
     #
     def publish_doxygen( self, branchnames ):
         branchnames = list(set(branchnames))
         startbranch = self.current_branch
         if len(branchnames) > 0:
-            #check if /tmp dir exists
-            #~ if not os.path.exists(self.tempdir) and os.path.isdir(self.tempdir):
-                #~ msg = 'Directory %s not found. Create it or change tempdir of githookcontroller'
-                #~ log.error( msg )
-                #~ sys.exit(1)
-                #~ 
             # check if current branch is in branchnames and process it first to
             # avoid uneccessary git checkouts
             if any(self.current_branch in b for b in branchnames):
