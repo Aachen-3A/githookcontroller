@@ -52,6 +52,7 @@ else
     git clone git@github.com:Aachen-3A/githookcontroller.git hooks
     setlinks=0
 fi
+
 if [ $setlinks -eq 0 ];then    
     # make sure all hooks can be executed
     chmod u+x $DIR/hooks/post-commit.py
@@ -64,5 +65,23 @@ if [ $setlinks -eq 0 ];then
     ln -fs $DIR/hooks/pre-commit.py $DIR/.git/hooks/pre-commit
     ln -fs $DIR/hooks/post-commit.py $DIR/.git/hooks/post-commit
     ln -fs $DIR/hooks/pre-push.py $DIR/.git/hooks/pre-push
+    
+    #check if doc folder exists
+    if [ ! -d "./doc/" ]; then
+        mkdir ./doc/
+    fi
+    #check if template files exists and copy example versions otherwise
+    if [ ! -e "./doc/doxy_cfg_template" ]; then
+        cp ./hooks/doxy_cfg_template.example ./doc/doxy_cfg_template
+    fi
+    
+    if [ ! -e "./doc/footer_template.html" ]; then
+        cp ./hooksfooter_template.html.example ./doc/footer_template.html
+    fi
+    
+    if [ ! -e "./doc/header_template.html" ]; then
+        cp ./hooks/header_template.html.example ./doc/header_template.html
+    fi
+    
 fi    
 
