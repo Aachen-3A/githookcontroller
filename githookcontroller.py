@@ -91,7 +91,7 @@ class GitHookController():
         for line in stdout:
             if 'fetch' in line:
                 if 'https' in line:
-                    return line.split( '/' )[-2].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                    return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
                 if 'git@github.com' in line:
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
@@ -349,7 +349,7 @@ class GitHookController():
                 cmd = [ "git", "pull"]
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
                 stdout = proc.communicate()[0].rstrip()
-                
+                branchnames = list( set(branchnames) )
                 #checkout doc folders from all branches
                 for branchname in branchnames:
                     log.debug( 'adding doc for %s to gh-pages' % branchname )
