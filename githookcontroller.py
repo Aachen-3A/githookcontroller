@@ -295,7 +295,7 @@ class GitHookController():
             
         # prepare linklines and replacements
         linklines = []
-        for branchname in self.remote_branches:
+        for branchname in list( set(self.remote_branches) ):
             if branchname in self.vetobranches:
                continue 
             print ( self.organisation, self.remote_root_name, branchname , branchname)
