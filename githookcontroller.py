@@ -52,6 +52,7 @@ class GitHookController():
     # @param tempdir Directory where files are stored temporarily outside the repo default: /tmp/
     def __init__(self, tempdir = '/tmp/'):
         self.args = None
+        self.docenv = 'TAPASDOC'
         self.stdin = []
         parser = argparse.ArgumentParser(description='Parser for git message to hook')
         self.parser = parser
@@ -163,7 +164,17 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         stdout = proc.communicate()[0].rstrip()
-    
+        
+    ## run a git command
+    #
+    # @param self The object pointer
+    # @param command list with commands as needed by subprocess.Popen 
+    def _call_git(self, cmd):
+        cmd.insert( 0, 'git')
+        cmd = [' '.join(cmd)]
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        stdout, stderr = proc.communicate()[0].rstrip(), proc.communicate()[0].rstrip()
+        
     ###########################
     ### functions for hooks ###
     ###########################
@@ -269,15 +280,33 @@ class GitHookController():
     def prepare_doxygen_cfg(self):
         if self.current_branch in self.vetobranches:
             return None
+        # check if DOC folder env variable is set
+        if os.getenv( self.docenv ) is not None:
+            docdir = os.getenv( self.docenv )
+        else:
+            sys.error( 'Did not find environment variable %' self.docenv)
+            sys.error( 'Skipping creation of new documention')
+            sys.exit(1)  
             
+        cwd = os.getcwd()    
+        # change dir into doc submodule
+        os.chdir( docdir )
+        
+        #make sure doc is set to gh-pages branch
+        if not self.current_branch == 'gh-pages':
+            self.checkout_branch('gh-pages', True)
+
+        #get back to original repo
+        os.chdir( cwd )
+        
         ## prepare footer.html and header.html
         template_html = {}
-        header_template_path = './doc/header_template.html'
-        footer_template_path = './doc/footer_template.html'
+        header_template_path = os.path.join('', '%s/header_template.html' % docdir )
+        footer_template_path = os.path.join('', '%s/footer_template.html' % docdir )
         
         # check if template files exist and read
         if os.path.isfile( header_template_path ):
-            header_path = './doc/header.html'
+            header_path = path = os.path.join('', '%s/header.html' % docdir)
             with open( header_template_path, "rU+") as header_template:
                 header_html = header_template.read()
                 template_html.update({'header' : header_html } )
@@ -286,7 +315,7 @@ class GitHookController():
             
         if os.path.isfile( footer_template_path ):
             doFooter = True
-            footer_path = './doc/footer.html'
+            footer_path = path = os.path.join('', '%s/footer.html' % docdir)
             with open( footer_template_path , "rU+") as footer_template:
                 footer_html = footer_template.read()
                 template_html.update( {'footer':footer_html} )
@@ -314,84 +343,56 @@ class GitHookController():
             text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )   
             for src, target in replacements.iteritems():
                 text = text.replace(src, target)
-            with open( './doc/%s.html' % key, "wb" ) as html_file:
+            path = os.path.join('', '%s/%s.html' % (key,docdir))
+            with open(path , "wb" ) as html_file:
                 html_file.write( text )  
-        
+        #./doc/%remote_root_name%/doc_%branchname%
+        outputdir = os.path.join(docdir, self.remote_root_name,'doc_'% self.current_branch)
         ## prepare main config    
         replacements = { '%branchname%':self.current_branch,
                          '%remote_root_name%' : self.remote_root_name,
+                         '%output_dir%' : outputdir,
                          '%footer_html%' : footer_path,
                          '%header_html%' : header_path }
-        with open('./doc/doxy_cfg_template', "rU+") as template:
+        path = os.path.join('', '%s/doxy_cfg_template' % docdir  )
+        with open( path, "rU+") as template:
             text = template.read()
             for src, target in replacements.iteritems():
                     text = text.replace(src, target)
-                    
-        with open('./doc/doxy_cfg', "wb") as config:
+        path = os.path.join( '', '%s/doxy_cfg' % docdir )            
+        with open( path, "wb") as config:
             config.write(text)
     
     ## Checkout all doygen folders in gh-pages branch and commit changes
     #
     def publish_doxygen( self, branchnames ):
-        branchnames = list(set(branchnames))
-        startbranch = self.current_branch
-        if len(branchnames) > 0:
-            # check if current branch is in branchnames and process it first to
-            # avoid uneccessary git checkouts
-            if any(self.current_branch in b for b in branchnames):
-                branchnames.remove( self.current_branch )
-                branchnames.insert( 0, self.current_branch )
-                
-            if not 'gh-pages' in branchnames:
-                # checkout gh-pages branch, move and add folders
-                self.checkout_branch( 'gh-pages' )
-                # make sure gh-pages is up to date
-                cmd = [ "git", "pull"]
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                stdout = proc.communicate()[0].rstrip()
-                branchnames = list( set(branchnames) )
-                #checkout doc folders from all branches
-                for branchname in branchnames:
-                    log.debug( 'adding doc for %s to gh-pages' % branchname )
-                    cmd = ["git", "checkout", branchname, "./doc/doc_%s" % branchname]
-                    cmd = ' '.join(cmd)
-                    log.debug( cmd )
-                    proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                    #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
-                    stdout = proc.communicate()[0].rstrip()
-                    log.debug( stdout )
-                    
-                    # add checked out files
-                    cmd = ["git", "add", "./doc/doc_%s" % branchname]
-                    cmd = ' '.join( cmd ) 
-                    log.debug( cmd )
-                    proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                    #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
-                    stdout = proc.communicate()[0].rstrip()
-                    log.debug( stdout )
-                 # commit changes 
-                bname = ' '.join( branchnames )
-                msg = '" updated doxygen documentation for branch: %s"' % bname
-                cmd = [ "git", "commit", "-a" ,"--no-verify", "-m" , msg]
-                cmd =  [' '.join(cmd)]
-                log.debug( cmd )
-                #~ print cmd
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                stdout = proc.communicate()[0].rstrip()
-                log.info( stdout )
-                
-                # push only gh-branches as it is not included in current push
-                cmd = ["git", "push", "--no-verify" ,"origin", "gh-pages"]
-                cmd = ' '.join(cmd)
-                log.debug( cmd )
-                log.debug( 'pushing in gh-pages')
-                #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-                stdout = proc.communicate()[0].rstrip()
-                log.debug( stdout )
-                # return to start branch
-                self.checkout_branch( startbranch )
-           
+        # check if DOC folder env variable is set
+        if os.getenv( self.docenv ) is not None:
+            docdir = os.path.join('', os.getenv( self.docenv ) )
+        else:
+            sys.error( 'Did not find environment variable %' self.docenv)
+            sys.error( 'Skipping creation of new documention')
+            sys.exit(1) 
+            
+        cwd = os.getcwd()    
+        # change dir into /doc submodule
+        os.chdir( docdir )
+        
+        #make sure doc is set to gh-pages branch
+        if not self.current_branch == 'gh-pages':
+            self.checkout_branch('gh-pages', True)
+        # commit latests changes
+        self._call_git(['add', '.'])
+        bname = ' '.join( branchnames )
+        msg = '" updated doxygen documentation for branch: %s"' % bname
+        self._call_git([ "commit", "-a" ,"--no-verify", "-m" , msg])
+        #pull latests repo version
+        self._call_git(['pull'])
+        self._call_git( [ "push", "--no-verify" ,"origin", "gh-pages"] )
+        
+        
+        #get back to original repo
+        os.chdir( cwd )  
     ## Update the doxygen documentation for this folder repo
     #
     # Based on example in:
