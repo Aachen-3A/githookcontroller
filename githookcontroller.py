@@ -173,7 +173,7 @@ class GitHookController():
         cmd.insert( 0, 'git')
         cmd = [' '.join(cmd)]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-        stdout, stderr = proc.communicate()[0].rstrip(), proc.communicate()[0].rstrip()
+        stdout, stderr = proc.communicate()
         
     ###########################
     ### functions for hooks ###
@@ -284,7 +284,7 @@ class GitHookController():
         if os.getenv( self.docenv ) is not None:
             docdir = os.getenv( self.docenv )
         else:
-            sys.error( 'Did not find environment variable %' self.docenv)
+            sys.error( 'Did not find environment variable %s' % self.docenv)
             sys.error( 'Skipping creation of new documention')
             sys.exit(1)  
             
@@ -343,11 +343,13 @@ class GitHookController():
             text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )   
             for src, target in replacements.iteritems():
                 text = text.replace(src, target)
-            path = os.path.join('', '%s/%s.html' % (key,docdir))
+            path = os.path.join('', '%s/%s.html' % (docdir, key))
             with open(path , "wb" ) as html_file:
                 html_file.write( text )  
         #./doc/%remote_root_name%/doc_%branchname%
-        outputdir = os.path.join(docdir, self.remote_root_name,'doc_'% self.current_branch)
+        outputdir = os.path.join(docdir, self.remote_root_name,'doc_%s'% self.current_branch)
+        if not os.path.isdir( outputdir ):
+            os.makedirs( outputdir )
         ## prepare main config    
         replacements = { '%branchname%':self.current_branch,
                          '%remote_root_name%' : self.remote_root_name,
@@ -370,7 +372,7 @@ class GitHookController():
         if os.getenv( self.docenv ) is not None:
             docdir = os.path.join('', os.getenv( self.docenv ) )
         else:
-            sys.error( 'Did not find environment variable %' self.docenv)
+            sys.error( 'Did not find environment variable %s' % self.docenv)
             sys.error( 'Skipping creation of new documention')
             sys.exit(1) 
             
@@ -400,10 +402,19 @@ class GitHookController():
     #
     # @param self The object pointer
     # @param configpath Path to the doxygen confi file
-    def update_doxygen(self,configpath = './doc/doxy_cfg'):
+    def update_doxygen(self):
+        
+        if os.getenv( self.docenv ) is not None:
+            docdir = os.path.join('', os.getenv( self.docenv ) )
+        else:
+            sys.error( 'Did not find environment variable %s' % self.docenv)
+            sys.error( 'Skipping creation of new documention')
+            sys.exit(1) 
+        
         if self.current_branch in self.vetobranches:
             return None
         log.info( 'updating doxygen documentation' )
+        configpath = os.path.join( docdir, 'doxy_cfg')
         stdout, stderr = current_ref = subprocess.Popen(['doxygen', configpath],
                                         stdout=subprocess.PIPE).communicate()
         warnings = self._get_doxygen_warnings()
@@ -423,13 +434,13 @@ class GitHookController():
                 else:
                     log.warning( 'You are in branch %s. Better fix errors now or merge commits will be rejected to dev/master in the future' )
         # add new doc to branch
-        cmd = [ "git", "add", "doc/doc_%s/" % self.current_branch ]
-        print cmd
-        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
-        stdout = proc.communicate()[0].rstrip()
-        cmd = ["git", "commit", "-a", "--amend", "-C", "HEAD", "--no-verify"]
-        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
-        stdout = proc.communicate()[0].rstrip()
+        #~ cmd = [ "git", "add", "doc/doc_%s/" % self.current_branch ]
+        #~ print cmd
+        #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE)
+        #~ stdout = proc.communicate()[0].rstrip()
+        #~ cmd = ["git", "commit", "-a", "--amend", "-C", "HEAD", "--no-verify"]
+        #~ proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
+        #~ stdout = proc.communicate()[0].rstrip()
 
 
     ## Get all doxygen warnings
