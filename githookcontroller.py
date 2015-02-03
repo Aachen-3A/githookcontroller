@@ -97,6 +97,36 @@ class GitHookController():
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
         
+    ## Get root name of doc repo 
+    #
+    # @returns string containing the name of the remote root name
+    @property
+    def doc_remote_root_name(self):
+        # check if DOC folder env variable is set
+        if os.getenv( self.docenv ) is not None:
+            docdir = os.path.join('', os.getenv( self.docenv ) )
+        else:
+            log.error( 'Did not find environment variable %s' % self.docenv)
+            log.error( 'Skipping creation of new documention')
+            sys.exit(1) 
+            
+        cwd = os.getcwd()    
+        # change dir into /doc submodule
+        os.chdir( docdir )
+        
+        cmd = ["git", "remote","-v"]
+        cmd = [' '.join(cmd)]
+        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
+        # get back to original dir
+        os.chdir( cwd )
+        for line in stdout:
+            if 'fetch' in line:
+                if 'https' in line:
+                    return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+                if 'git@github.com' in line:
+                    return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
+  
+        return 'not_found'
     ## Get url from remote 
     #
     # @returns string containing the name of the remote root name
@@ -284,12 +314,13 @@ class GitHookController():
         if os.getenv( self.docenv ) is not None:
             docdir = os.getenv( self.docenv )
         else:
-            sys.error( 'Did not find environment variable %s' % self.docenv)
-            sys.error( 'Skipping creation of new documention')
+            log.error( 'Did not find environment variable %s' % self.docenv)
+            log.error( 'Skipping creation of new documention')
             sys.exit(1)  
             
         cwd = os.getcwd()    
         # change dir into doc submodule
+        log.info('current dir %s' % os.getcwd() )
         os.chdir( docdir )
         
         #make sure doc is set to gh-pages branch
@@ -297,6 +328,8 @@ class GitHookController():
             self.checkout_branch('gh-pages', True)
 
         #get back to original repo
+        log.info('current dir %s' % os.getcwd() )
+        
         os.chdir( cwd )
         
         ## prepare footer.html and header.html
@@ -327,9 +360,9 @@ class GitHookController():
         for branchname in list( set(self.remote_branches) ):
             if branchname in self.vetobranches:
                continue 
-            print ( self.organisation, self.remote_root_name, branchname , branchname)
-            linkline = '<option value="http://%s.github.io/%s/doc/doc_%s/html/index.html">%s</option>' % \
-                        ( self.organisation, self.remote_root_name, branchname, branchname)
+            #~ print ( self.organisation, self.doc_remote_root_name, branchname , branchname)
+            linkline = '<option value="http://%s.github.io/%s/%s/doc_%s/html/index.html">%s</option>' % \
+                        ( self.organisation, self.doc_remote_root_name, self.remote_url, branchname, branchname)
                         
             linklines.append( linkline )
         
@@ -346,10 +379,10 @@ class GitHookController():
             path = os.path.join('', '%s/%s.html' % (docdir, key))
             with open(path , "wb" ) as html_file:
                 html_file.write( text )  
-        #./doc/%remote_root_name%/doc_%branchname%
         outputdir = os.path.join(docdir, self.remote_root_name,'doc_%s'% self.current_branch)
+
         if not os.path.isdir( outputdir ):
-            os.makedirs( outputdir )
+            os.makedirs( outputdir)
         ## prepare main config    
         replacements = { '%branchname%':self.current_branch,
                          '%remote_root_name%' : self.remote_root_name,
@@ -407,11 +440,12 @@ class GitHookController():
         if os.getenv( self.docenv ) is not None:
             docdir = os.path.join('', os.getenv( self.docenv ) )
         else:
-            sys.error( 'Did not find environment variable %s' % self.docenv)
-            sys.error( 'Skipping creation of new documention')
+            log.error( 'Did not find environment variable %s' % self.docenv)
+            log.error( 'Skipping creation of new documention')
             sys.exit(1) 
         
         if self.current_branch in self.vetobranches:
+            log.info( 'No doxygen documentation for branch %s' % self.current_branch )
             return None
         log.info( 'updating doxygen documentation' )
         configpath = os.path.join( docdir, 'doxy_cfg')
