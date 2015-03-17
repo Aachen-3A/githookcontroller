@@ -69,14 +69,23 @@ class GitHookController():
     #
     # @param self The object pointer
     def load_config(self, configfile):
-        self.config = ConfigObj( configfile )
+        try:
+            self.config = ConfigObj( configfile )
+        except:
+            log.error( 'Unable to open confi file %s' % configfile)
         self.docenv = self.config['general']['docenv']
         self.organisation = self.config['general']['docenv']
         self.vetobranches = list(self.config['general']['vetobranches'])
         #Check if repo name in repos section and add repo specific repos
         if self.remote_root_name in self.config['repos']:
             try:
-                self.doxy_enforce = bool( self.config['general']['doxy_enforce'] )
+                self.create_doxy = bool( self.config[self.remote_root_name]['create_doxy'] )
+            except KeyError:
+                pass
+                self.doxy_enforce = False
+            # check if doxygen should be enforced
+            try:
+                self.doxy_enforce = bool( self.config[self.remote_root_name]['doxy_enforce'] )
             except KeyError:
                 pass
                 self.doxy_enforce = False
