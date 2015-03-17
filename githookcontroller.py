@@ -31,7 +31,10 @@ import argparse
 import subprocess
 import logging
 import urllib2
+from configobj import ConfigObj
 
+
+# setup logging
 log = logging.getLogger( 'githookcontroller' )
 log.setLevel( logging.INFO )
 ch = logging.StreamHandler( sys.stdout )
@@ -50,28 +53,40 @@ class GitHookController():
     #
     # @param self The object pointer
     # @param tempdir Directory where files are stored temporarily outside the repo default: /tmp/
-    def __init__(self, tempdir = '/tmp/'):
+    def __init__(self,
+                 configfile = 'githookcontroller_default.cfg',
+                 tempdir = '/tmp/'):
         self.args = None
-        self.docenv = 'TAPASDOC'
+        self.load_config( configfile )
         self.stdin = []
-        parser = argparse.ArgumentParser(description='Parser for git message to hook')
+        descr = 'Parser for git message to hook'
+        parser = argparse.ArgumentParser(description= descr)
         self.parser = parser
         self.stdin = sys.stdin.read()
-        self.organisation = 'aachen-3a'
         self.tempdir = tempdir
-        # list of branches where branch specific hooks are ignored
-        self.vetobranches = ['gh-pages']
-        # list of reponametags (parts of repo root name) where doxygen
-        # documentation is enforced
-        self.doxy_enforce_repos = ['lib', 'Lib','test']
-        
     
+    ## Load infos from config file into controller object
+    #
+    # @param self The object pointer
+    def load_config(self, configfile):
+        self.config = ConfigObj( configfile )
+        self.docenv = self.config['general']['docenv']
+        self.organisation = self.config['general']['docenv']
+        self.vetobranches = list(self.config['general']['vetobranches'])
+        #Check if repo name in repos section and add repo specific repos
+        if self.remote_root_name in self.config['repos']:
+            try:
+                self.doxy_enforce = bool( self.config['general']['doxy_enforce'] )
+            except KeyError:
+                pass
+                self.doxy_enforce = False
     ############################
     ### git helper functions ###
     ############################
     
     ## Get root name of repo
     #
+    # @param self The object pointer
     # @returns string containing the name of the root name
     @property
     def root_name(self):
@@ -459,7 +474,7 @@ class GitHookController():
             
             # check if doxgen should be enforced
             
-            if any(b in self.root_name for b in self.doxy_enforce_repos) :
+            if self.doxy_enforce :
                 log.warning( 'Working in repo %s, please take special care of documentation and fix all doxgen warnings before commit.' % self.root_name)
                 if self.current_branch in 'dev'  or  self.current_branch in 'master' :
                     log.error( 'You are in branch %s. Doxygen documention is enforced here! No commit until doxy.warn is empty' % self.current_branch)
@@ -488,11 +503,6 @@ class GitHookController():
         else:
             return []
     
-#~ for line in fileinput.input("test.txt", inplace=True):
-    #~ print "%d: %s" % (fileinput.filelineno(), line),
-#~ def 
-#~ sed 's/foo/bar/g'
-#~ git log --format=%B -n 1 <commit>
 def main():
     pass
     #~ print lines
