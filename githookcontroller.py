@@ -72,9 +72,7 @@ class GitHookController():
         if not os.path.exists( os.path.join( self.root_path, 'hooks'  , configfile )):
             log.error('Config file %s not found' % os.path.join( os.getcwd()  , configfile ) )
         try:
-            log.info('config ' + configfile )
             self.config = ConfigObj( os.path.join( self.root_path, 'hooks'  , configfile ) )
-            log.info( str( self.config ) )
         except:
             log.error( 'Unable to open config file %s' % configfile)
         self.docenv = self.config['general']['docenv']
