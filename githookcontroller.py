@@ -69,10 +69,14 @@ class GitHookController():
     #
     # @param self The object pointer
     def load_config(self, configfile):
+        if not os.path.exists( os.path.join( self.root_path, 'hooks'  , configfile )):
+            log.error('Config file %s not found' % os.path.join( os.getcwd()  , configfile ) )
         try:
-            self.config = ConfigObj( configfile )
+            log.info('config ' + configfile )
+            self.config = ConfigObj( os.path.join( self.root_path, 'hooks'  , configfile ) )
+            log.info( str( self.config ) )
         except:
-            log.error( 'Unable to open confi file %s' % configfile)
+            log.error( 'Unable to open config file %s' % configfile)
         self.docenv = self.config['general']['docenv']
         self.organisation = self.config['general']['docenv']
         self.vetobranches = list(self.config['general']['vetobranches'])
@@ -82,7 +86,7 @@ class GitHookController():
                 self.create_doxy = bool( self.config[self.remote_root_name]['create_doxy'] )
             except KeyError:
                 pass
-                self.doxy_enforce = False
+                self.create_doxy = False
             # check if doxygen should be enforced
             try:
                 self.doxy_enforce = bool( self.config[self.remote_root_name]['doxy_enforce'] )
@@ -103,6 +107,17 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
         return stdout.split('/')[-1]
+        
+    ## Get root path of repo
+    #
+    # @param self The object pointer
+    # @returns string containing the name of the root name
+    @property
+    def root_path(self):
+        cmd = ["git", "rev-parse","--show-toplevel"]
+        cmd = [' '.join(cmd)]
+        stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
+        return stdout
     
     ## Get root name of remote (the original repo name) 
     #
