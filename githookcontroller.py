@@ -85,7 +85,6 @@ class GitHookController():
             try:
                 self.create_doxy = bool( self.config[self.remote_root_name]['create_doxy'] )
             except KeyError:
-                pass
                 self.create_doxy = False
             # check if doxygen should be enforced
             try:
