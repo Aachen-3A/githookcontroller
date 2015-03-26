@@ -2,19 +2,19 @@
 # -*- coding: utf-8 -*-
 ##
 ## This script contains classes to quickly build own git hooks
-## 
+##
 ## Copyright (c) 2014 Tobias Pook
-## 
+##
 ## Permission is hereby granted, free of charge, to any person obtaining a copy
 ## of this software and associated documentation files (the "Software"), to deal
 ## in the Software without restriction, including without limitation the rights
 ## to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 ## copies of the Software, and to permit persons to whom the Software is
 ## furnished to do so, subject to the following conditions:
-## 
+##
 ## The above copyright notice and this permission notice shall be included in
 ## all copies or substantial portions of the Software.
-## 
+##
 ## THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 ## IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 ## FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -48,7 +48,7 @@ Push = namedtuple('Push', ['commits', 'remote_name', 'remote_url',
 Commit = namedtuple('Commit', ['local_ref', 'local_sha1', 'remote_ref', 'remote_sha1',
                                'local_branch', 'remote_branch'])
 class GitHookController():
-    
+
     ## The constructor.
     #
     # @param self The object pointer
@@ -64,7 +64,7 @@ class GitHookController():
         self.parser = parser
         self.stdin = sys.stdin.read()
         self.tempdir = tempdir
-    
+
     ## Load infos from config file into controller object
     #
     # @param self The object pointer
@@ -93,7 +93,7 @@ class GitHookController():
     ############################
     ### git helper functions ###
     ############################
-    
+
     ## Get root name of repo
     #
     # @param self The object pointer
@@ -104,7 +104,7 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
         return stdout.split('/')[-1]
-        
+
     ## Get root path of repo
     #
     # @param self The object pointer
@@ -115,8 +115,8 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
         return stdout
-    
-    ## Get root name of remote (the original repo name) 
+
+    ## Get root name of remote (the original repo name)
     #
     # @returns string containing the name of the remote root name
     @property
@@ -132,8 +132,8 @@ class GitHookController():
                 if 'git@github.com' in line:
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
         return 'not_found'
-        
-    ## Get root name of doc repo 
+
+    ## Get root name of doc repo
     #
     # @returns string containing the name of the remote root name
     @property
@@ -144,12 +144,12 @@ class GitHookController():
         else:
             log.error( 'Did not find environment variable %s' % self.docenv)
             log.error( 'Skipping creation of new documention')
-            sys.exit(1) 
-            
-        cwd = os.getcwd()    
+            sys.exit(1)
+
+        cwd = os.getcwd()
         # change dir into /doc submodule
         os.chdir( docdir )
-        
+
         cmd = ["git", "remote","-v"]
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip().split('\n')
@@ -161,9 +161,9 @@ class GitHookController():
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
                 if 'git@github.com' in line:
                     return line.split( '/' )[-1].replace( '.git', '' ).replace( '(fetch)', '' ).strip()
-  
+
         return 'not_found'
-    ## Get url from remote 
+    ## Get url from remote
     #
     # @returns string containing the name of the remote root name
     @property
@@ -184,8 +184,8 @@ class GitHookController():
                     url = url.replace( '.git', '' )
                     url = url.replace( '(fetch)', '' ).strip()
                     url = url.replace( ':', '/' ).strip()
-                    url = "https://" + url 
-                    
+                    url = "https://" + url
+
                 try:
                     urllib2.urlopen(url)
                     return url
@@ -196,8 +196,8 @@ class GitHookController():
                 except :
                     return ""
         return ""
-    
-    ## Get currently chosen branch 
+
+    ## Get currently chosen branch
     #
     @property
     def current_branch(self):
@@ -205,8 +205,8 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         stdout = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0].rstrip()
         return stdout
-    
-    ## Get list of remote branches 
+
+    ## Get list of remote branches
     #
     # @returns A list of strings containing all remot branch names
     @property
@@ -217,12 +217,12 @@ class GitHookController():
         stdout = [ st.split('/')[-1] for st in stdout]
         branches = list( set(stdout) )
         return stdout
-        
-    ## Checkout another branch 
+
+    ## Checkout another branch
     #
     # @param self The object pointer
-    # @param branchname name of branch which is checked out 
-    # @param forced boolean for forced checkout 
+    # @param branchname name of branch which is checked out
+    # @param forced boolean for forced checkout
     def checkout_branch(self, branchname, forced = False):
         if forced: flag = '-f'
         else: flag = ''
@@ -230,32 +230,32 @@ class GitHookController():
         cmd = [' '.join(cmd)]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         stdout = proc.communicate()[0].rstrip()
-        
+
     ## run a git command
     #
     # @param self The object pointer
-    # @param command list with commands as needed by subprocess.Popen 
+    # @param command list with commands as needed by subprocess.Popen
     def _call_git(self, cmd):
         cmd.insert( 0, 'git')
         cmd = [' '.join(cmd)]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         stdout, stderr = proc.communicate()
-        
+
     ###########################
     ### functions for hooks ###
     ###########################
-    
+
     ## Parse message from post commit
     #
     # @param self The object pointer
     def post_commit(self):
         pass
-        
+
     ## Get list of chagend files in commit
     #
     # @param self The object pointer
     def parse_pre_commit(self):
-        cmd = ["git", "diff", "--cached", "--name-status"]            
+        cmd = ["git", "diff", "--cached", "--name-status"]
         cmd = [' '.join(cmd)]
         proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True)
         files = proc.communicate()[0].rstrip().split('\n')
@@ -264,8 +264,8 @@ class GitHookController():
         except:
             files = []
         return files
-        
-    ## Parse message from pre-push 
+
+    ## Parse message from pre-push
     #
     # Based on example in:
     # http://axialcorps.com/2014/06/03/preventing-errant-git-pushes-with-a-pre-push-hook/
@@ -302,29 +302,29 @@ class GitHookController():
         for commit in commits:
             if commit.local_ref == "(delete)":
                 removing_remote.add(commit.remote_branch)
-                
+
         return Push(commits=commits,
-                    remote_name=args.remote_name, 
+                    remote_name=args.remote_name,
                     remote_url=args.remote_url,
                     current_branch=current_branch,
                     removing_remote=removing_remote,
                     forcing=forcing)
-    
+
     ###########################################
     ### functions for code style enforcment ###
     ###########################################
-    
+
     ## Check if file fullfills cpplint check
     #
     # @param self The object pointer
-    # @param filepath path to the file where lint check should be performed 
+    # @param filepath path to the file where lint check should be performed
     def check_cpplint( self, filepath):
         pass
-        
+
     #########################################
     ### functions for doxygen integration ###
     #########################################
-    
+
     ## Prepare doxygen config file from template
     #
     # The function replaces Tokens for files in ./doc/:
@@ -337,11 +337,11 @@ class GitHookController():
     # - header_template.html
     # - footer_template.html
     #   available Tokens:
-    #      +++optionsline+++ a fixed url path 
+    #      +++optionsline+++ a fixed url path
     #      ++branch_name++ current branch name
     #      ++remote_url++ see object property
     #      ++remote_root_name++ see object property
-    # 
+    #
     # @param self The object pointer
     def prepare_doxygen_cfg(self):
         if self.current_branch in self.vetobranches:
@@ -352,74 +352,74 @@ class GitHookController():
         else:
             log.error( 'Did not find environment variable %s' % self.docenv)
             log.error( 'Skipping creation of new documention')
-            sys.exit(1)  
-            
-        cwd = os.getcwd()    
+            sys.exit(1)
+
+        cwd = os.getcwd()
         # change dir into doc submodule
         log.info('current dir %s' % os.getcwd() )
         os.chdir( docdir )
-        
+
         #make sure doc is set to gh-pages branch
         if not self.current_branch == 'gh-pages':
             self.checkout_branch('gh-pages', True)
 
         #get back to original repo
         log.info('current dir %s' % os.getcwd() )
-        
+
         os.chdir( cwd )
-        
+
         ## prepare footer.html and header.html
         template_html = {}
         header_template_path = os.path.join('', '%s/header_template.html' % docdir )
         footer_template_path = os.path.join('', '%s/footer_template.html' % docdir )
-        
+
         # check if template files exist and read
         if os.path.isfile( header_template_path ):
             header_path = path = os.path.join('', '%s/header.html' % docdir)
             with open( header_template_path, "rU+") as header_template:
                 header_html = header_template.read()
                 template_html.update({'header' : header_html } )
-        else: 
+        else:
             header_path = ''
-            
+
         if os.path.isfile( footer_template_path ):
             doFooter = True
             footer_path = path = os.path.join('', '%s/footer.html' % docdir)
             with open( footer_template_path , "rU+") as footer_template:
                 footer_html = footer_template.read()
                 template_html.update( {'footer':footer_html} )
-        else: 
+        else:
             footer_path = ''
-            
+
         # prepare linklines and replacements
         linklines = []
         for branchname in list( set(self.remote_branches) ):
             if branchname in self.vetobranches:
-               continue 
+               continue
             #~ print ( self.organisation, self.doc_remote_root_name, branchname , branchname)
             linkline = '<option value="http://%s.github.io/%s/%s/doc_%s/html/index.html">%s</option>' % \
                         ( self.organisation, self.doc_remote_root_name, self.remote_url, branchname, branchname)
-                        
+
             linklines.append( linkline )
-        
+
         replacements = { '++branchname++' : self.current_branch,
-                         '++remote_root_name++' : self.remote_root_name,    
+                         '++remote_root_name++' : self.remote_root_name,
                          '++remote_url++' : self.remote_url }
-        
+
         # replace tokens and write files
         for key in template_html.keys():
-            text = template_html[key]   
-            text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )   
+            text = template_html[key]
+            text = text.replace( '+++optionsline+++', '\n'.join( linklines ) )
             for src, target in replacements.iteritems():
                 text = text.replace(src, target)
             path = os.path.join('', '%s/%s.html' % (docdir, key))
             with open(path , "wb" ) as html_file:
-                html_file.write( text )  
+                html_file.write( text )
         outputdir = os.path.join(docdir, self.remote_root_name,'doc_%s'% self.current_branch)
 
         if not os.path.isdir( outputdir ):
             os.makedirs( outputdir)
-        ## prepare main config    
+        ## prepare main config
         replacements = { '%branchname%':self.current_branch,
                          '%remote_root_name%' : self.remote_root_name,
                          '%output_dir%' : outputdir,
@@ -430,10 +430,10 @@ class GitHookController():
             text = template.read()
             for src, target in replacements.iteritems():
                     text = text.replace(src, target)
-        path = os.path.join( '', '%s/doxy_cfg' % docdir )            
+        path = os.path.join( '', '%s/doxy_cfg' % docdir )
         with open( path, "wb") as config:
             config.write(text)
-    
+
     ## Checkout all doygen folders in gh-pages branch and commit changes
     #
     def publish_doxygen( self, branchnames ):
@@ -443,12 +443,12 @@ class GitHookController():
         else:
             sys.error( 'Did not find environment variable %s' % self.docenv)
             sys.error( 'Skipping creation of new documention')
-            sys.exit(1) 
-            
-        cwd = os.getcwd()    
+            sys.exit(1)
+
+        cwd = os.getcwd()
         # change dir into /doc submodule
         os.chdir( docdir )
-        
+
         #make sure doc is set to gh-pages branch
         if not self.current_branch == 'gh-pages':
             self.checkout_branch('gh-pages', True)
@@ -460,10 +460,10 @@ class GitHookController():
         #pull latests repo version
         self._call_git(['pull'])
         self._call_git( [ "push", "--no-verify" ,"origin", "gh-pages"] )
-        
-        
+
+
         #get back to original repo
-        os.chdir( cwd )  
+        os.chdir( cwd )
     ## Update the doxygen documentation for this folder repo
     #
     # Based on example in:
@@ -472,14 +472,14 @@ class GitHookController():
     # @param self The object pointer
     # @param configpath Path to the doxygen confi file
     def update_doxygen(self):
-        
+
         if os.getenv( self.docenv ) is not None:
             docdir = os.path.join('', os.getenv( self.docenv ) )
         else:
             log.error( 'Did not find environment variable %s' % self.docenv)
             log.error( 'Skipping creation of new documention')
-            sys.exit(1) 
-        
+            sys.exit(1)
+
         if self.current_branch in self.vetobranches:
             log.info( 'No doxygen documentation for branch %s' % self.current_branch )
             return None
@@ -492,9 +492,9 @@ class GitHookController():
         if nwarnings > 0:
             log.warning('Doxyen produced %d warnings, please check in ./doc/doxy.warn' % nwarnings)
             log.info('Everybody will love you for great documentation !')
-            
+
             # check if doxgen should be enforced
-            
+
             if self.doxy_enforce :
                 log.warning( 'Working in repo %s, please take special care of documentation and fix all doxgen warnings before commit.' % self.root_name)
                 if self.current_branch in 'dev'  or  self.current_branch in 'master' :
@@ -523,7 +523,7 @@ class GitHookController():
             return warnings
         else:
             return []
-    
+
 def main():
     pass
     #~ print lines
@@ -536,4 +536,4 @@ def main():
 if __name__=="__main__":
     main()
 
-    
+
