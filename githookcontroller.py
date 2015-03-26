@@ -62,7 +62,6 @@ class GitHookController():
         descr = 'Parser for git message to hook'
         parser = argparse.ArgumentParser(description= descr)
         self.parser = parser
-        self.stdin = sys.stdin.read()
         self.tempdir = tempdir
 
     ## Load infos from config file into controller object
@@ -277,6 +276,7 @@ class GitHookController():
         self.parser.add_argument('remote_name')
         self.parser.add_argument('remote_url')
         args = self.parser.parse_args()
+        self.stdin = sys.stdin.read()
         lines = self.stdin.splitlines()
         for line in lines:
             split_line = line.split()
