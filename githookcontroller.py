@@ -47,6 +47,24 @@ Push = namedtuple('Push', ['commits', 'remote_name', 'remote_url',
                            'current_branch', 'removing_remote', 'forcing'])
 Commit = namedtuple('Commit', ['local_ref', 'local_sha1', 'remote_ref', 'remote_sha1',
                                'local_branch', 'remote_branch'])
+
+
+## Decorator function to modify returncodes in case lint is not being enforced
+#
+# @return Returns 0 if 'enforce' is disabled, else the returncode itself
+def enforce_dectorator(attribute):
+    def _enforce_dectorator(function):
+        def enforce_wrapper(self, *args):
+            returncode = function(self, *args)
+            if returncode is not 0 and getattr(self, attribute):
+                return returncode
+            else:
+                return 0
+
+        return enforce_wrapper
+    return _enforce_dectorator
+
+
 class GitHookController():
 
     ## The constructor.
@@ -77,18 +95,16 @@ class GitHookController():
         self.docenv = self.config['general']['docenv']
         self.organisation = self.config['general']['docenv']
         self.vetobranches = list(self.config['general']['vetobranches'])
-        #Check if repo name in repos section and add repo specific repos
+        #Check if repo name in repos section
         if self.remote_root_name in self.config['repos']:
-            try:
-                self.create_doxy = bool( self.config[self.remote_root_name]['create_doxy'] )
-            except KeyError:
-                self.create_doxy = False
-            # check if doxygen should be enforced
-            try:
-                self.doxy_enforce = bool( self.config[self.remote_root_name]['doxy_enforce'] )
-            except KeyError:
-                pass
-                self.doxy_enforce = False
+            # load repo specific options
+            for attribute in ["create_doxy", "doxy_enforce", "lint_enable", "lint_enforce"]:
+                try:
+                    setattr(self, attribute, bool( self.config['repos'][self.remote_root_name][attribute] ))
+                except KeyError:
+                    setattr(self, attribute, False)
+
+
     ############################
     ### git helper functions ###
     ############################
@@ -314,12 +330,48 @@ class GitHookController():
     ### functions for code style enforcment ###
     ###########################################
 
-    ## Check if file fullfills cpplint check
+    ## Returns whether code should be linted based on the branch and the lint setting
+    #
+    # @return True if code should be linted, else False
+    @property
+    def do_lint(self):
+        if self.current_branch in self.vetobranches:
+            return False
+        if not self.lint_enable:
+            return False
+        return True
+
+
+    ## Determine file format and delegate checking its code style
     #
     # @param self The object pointer
     # @param filepath path to the file where lint check should be performed
-    def check_cpplint( self, filepath):
-        pass
+    # @return 1 if the check was successful, 0 if not
+    def lint_file(self, filepath):
+        if filepath.rsplit(".")[-1] == "cc" or filepath.rsplit(".")[-1] == "hh":
+            return self.lint_cc(filepath)
+        else:
+            return 0
+
+
+    ## Check if file fulfills cpplint check
+    #
+    # @param self The object pointer
+    # @param filepath path to the file where lint check should be performed
+    # @return 1 if the check was successful, 0 if not
+    @enforce_dectorator("lint_enforce")
+    def lint_cc(self, filepath):
+        cmd = ["cpplint.py", "--linelength=200", filepath]
+        cmd = [" ".join(cmd)]
+        subp = subprocess.Popen(cmd,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                shell=True)
+
+        stdout, stderr = subp.communicate()
+        log.warning("\n" + stderr)
+        return subp.returncode
+
 
     #########################################
     ### functions for doxygen integration ###
@@ -535,5 +587,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
-
