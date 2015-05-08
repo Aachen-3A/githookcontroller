@@ -70,6 +70,7 @@ class GitHookController():
     ## The constructor.
     #
     # @param self The object pointer
+    # @param configfile Configuration file for the GitHookController, default: githookcontroller_default.cfg
     # @param tempdir Directory where files are stored temporarily outside the repo default: /tmp/
     def __init__(self,
                  configfile = 'githookcontroller_default.cfg',
@@ -85,6 +86,7 @@ class GitHookController():
     ## Load infos from config file into controller object
     #
     # @param self The object pointer
+    # @param configfile The configuration file for the GitHookController
     def load_config(self, configfile):
         if not os.path.exists( os.path.join( self.root_path, 'hooks'  , configfile )):
             log.error('Config file %s not found' % os.path.join( os.getcwd()  , configfile ) )
@@ -94,11 +96,11 @@ class GitHookController():
             log.error( 'Unable to open config file %s' % configfile)
         self.docenv = self.config['general']['docenv']
         self.organisation = self.config['general']['docenv']
-        self.vetobranches = list(self.config['general']['vetobranches'])
+        self.branches = list(self.config['general']['branches'])
         #Check if repo name in repos section
         if self.remote_root_name in self.config['repos']:
             # load repo specific options
-            for attribute in ["create_doxy", "doxy_enforce", "lint_enable", "lint_enforce"]:
+            for attribute in ["doxy_enable", "doxy_enforce", "lint_enable", "lint_enforce"]:
                 try:
                     setattr(self, attribute, bool( self.config['repos'][self.remote_root_name][attribute] ))
                 except KeyError:
@@ -108,6 +110,15 @@ class GitHookController():
     ############################
     ### git helper functions ###
     ############################
+
+    ## True if branch is being controlled, False if not
+    #
+    # @param self The object pointer
+    @property
+    def branch_active(self):
+        if self.current_branch in self.branches:
+            return True
+        return False
 
     ## Get root name of repo
     #
@@ -249,7 +260,7 @@ class GitHookController():
     ## run a git command
     #
     # @param self The object pointer
-    # @param command list with commands as needed by subprocess.Popen
+    # @param cmd list with commands as needed by subprocess.Popen
     def _call_git(self, cmd):
         cmd.insert( 0, 'git')
         cmd = [' '.join(cmd)]
@@ -330,18 +341,6 @@ class GitHookController():
     ### functions for code style enforcment ###
     ###########################################
 
-    ## Returns whether code should be linted based on the branch and the lint setting
-    #
-    # @return True if code should be linted, else False
-    @property
-    def do_lint(self):
-        if self.current_branch in self.vetobranches:
-            return False
-        if not self.lint_enable:
-            return False
-        return True
-
-
     ## Determine file format and delegate checking its code style
     #
     # @param self The object pointer
@@ -352,7 +351,6 @@ class GitHookController():
             return self.lint_cc(filepath)
         else:
             return 0
-
 
     ## Check if file fulfills cpplint check
     #
@@ -396,8 +394,6 @@ class GitHookController():
     #
     # @param self The object pointer
     def prepare_doxygen_cfg(self):
-        if self.current_branch in self.vetobranches:
-            return None
         # check if DOC folder env variable is set
         if os.getenv( self.docenv ) is not None:
             docdir = os.getenv( self.docenv )
@@ -446,13 +442,12 @@ class GitHookController():
         # prepare linklines and replacements
         linklines = []
         for branchname in list( set(self.remote_branches) ):
-            if branchname in self.vetobranches:
-               continue
-            #~ print ( self.organisation, self.doc_remote_root_name, branchname , branchname)
-            linkline = '<option value="http://%s.github.io/%s/%s/doc_%s/html/index.html">%s</option>' % \
-                        ( self.organisation, self.doc_remote_root_name, self.remote_url, branchname, branchname)
+            if branchname in self.branches:
+                #~ print ( self.organisation, self.doc_remote_root_name, branchname , branchname)
+                linkline = '<option value="http://%s.github.io/%s/%s/doc_%s/html/index.html">%s</option>' % \
+                            ( self.organisation, self.doc_remote_root_name, self.remote_url, branchname, branchname)
 
-            linklines.append( linkline )
+                linklines.append( linkline )
 
         replacements = { '++branchname++' : self.current_branch,
                          '++remote_root_name++' : self.remote_root_name,
@@ -522,7 +517,6 @@ class GitHookController():
     # http://axialcorps.com/2014/06/03/preventing-errant-git-pushes-with-a-pre-push-hook/
     #
     # @param self The object pointer
-    # @param configpath Path to the doxygen confi file
     def update_doxygen(self):
 
         if os.getenv( self.docenv ) is not None:
@@ -532,7 +526,7 @@ class GitHookController():
             log.error( 'Skipping creation of new documention')
             sys.exit(1)
 
-        if self.current_branch in self.vetobranches:
+        if not self.branch_active:
             log.info( 'No doxygen documentation for branch %s' % self.current_branch )
             return None
         log.info( 'updating doxygen documentation' )
