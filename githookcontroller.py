@@ -359,7 +359,7 @@ class GitHookController():
     # @return 1 if the check was successful, 0 if not
     @enforce_dectorator("lint_enforce")
     def lint_cc(self, filepath):
-        cmd = ["cpplint.py", "--linelength=200", filepath]
+        cmd = ["cpplint.py", "--linelength=200", "--filter=-runtime/references", filepath]
         cmd = [" ".join(cmd)]
         subp = subprocess.Popen(cmd,
                                 stdout=subprocess.PIPE,
